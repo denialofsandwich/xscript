@@ -11,153 +11,153 @@ SHOW_DEBUG=0
 
 # Log debug info, only when SHOW_DEBUG=1 above
 function logdebug {
-    if [ "$SHOW_DEBUG" -eq 1 ]; then
-        echo "$@" >&2
-    fi
+  if [ "$SHOW_DEBUG" -eq 1 ]; then
+    echo "$@" >&2
+  fi
 }
 
 # Log errors
 function logerr {
-    echo "$@" >&2
+  echo "$@" >&2
 }
 
 # Helper util to do float comparisons without bc
 function num_compare {
-    awk "BEGIN {exit !($*)}"
+  awk "BEGIN {exit !($*)}"
 }
 
 # Get a path to the pwm chip
 function pwm_get_chip_path {
-    local SUB_PATH="$1"
+  local SUB_PATH="$1"
 
-    if [ -n "$SUB_PATH" ]; then
-        echo "$PWM_CHIP_PATH/$SUB_PATH"
-    else
-        echo "$PWM_CHIP_PATH"
-    fi
+  if [ -n "$SUB_PATH" ]; then
+    echo "$PWM_CHIP_PATH/$SUB_PATH"
+  else
+    echo "$PWM_CHIP_PATH"
+  fi
 }
 
 # Get a path to the pwm channel
 function pwm_get_channel_path {
-    local CHANNEL="$1"
-    local SUB_PATH="$2"
+  local CHANNEL="$1"
+  local SUB_PATH="$2"
 
-    local PWM_PATH="$PWM_CHIP_PATH/pwm$CHANNEL"
+  local PWM_PATH="$PWM_CHIP_PATH/pwm$CHANNEL"
 
-    if [ -n "$SUB_PATH" ]; then
-        echo "$PWM_PATH/$SUB_PATH"
-    else
-        echo "$PWM_PATH"
-    fi
+  if [ -n "$SUB_PATH" ]; then
+    echo "$PWM_PATH/$SUB_PATH"
+  else
+    echo "$PWM_PATH"
+  fi
 }
 
 # Export the given pwm channel
 function pwm_create {
-    local CHANNEL="$1"
+  local CHANNEL="$1"
 
-    PWM_CHANNEL_PATH="$(pwm_get_channel_path "$CHANNEL")"
-    if [ ! -d "$PWM_CHANNEL_PATH" ]; then
-        echo "$CHANNEL" > "$(pwm_get_chip_path "export")"
-    fi
+  PWM_CHANNEL_PATH="$(pwm_get_channel_path "$CHANNEL")"
+  if [ ! -d "$PWM_CHANNEL_PATH" ]; then
+    echo "$CHANNEL" >"$(pwm_get_chip_path "export")"
+  fi
 }
 
 # Transforms a frequency to a period
 function frequency_to_period {
-    local FREQUENCY="$1"
+  local FREQUENCY="$1"
 
-    PERC=$(awk -v freq="$FREQUENCY" 'BEGIN { printf "%.0f", 1 / freq * 1000 * 1000000; exit(0) }')
-    echo "$PERC"
+  PERC=$(awk -v freq="$FREQUENCY" 'BEGIN { printf "%.0f", 1 / freq * 1000 * 1000000; exit(0) }')
+  echo "$PERC"
 }
 
 # Change the pwm duty cycle
 function pwm_change_duty_cycle {
-    local CHANNEL="$1"
-    local FREQUENCY="$2"
-    local DUTY_CYCLE="$3"
+  local CHANNEL="$1"
+  local FREQUENCY="$2"
+  local DUTY_CYCLE="$3"
 
-    if [ "$DUTY_CYCLE" -lt 0 ] || [ "$DUTY_CYCLE" -gt 100 ]; then
-        logerr "Duty cycle must be greater or equal then 0 and lower or equal to 100"
-        return 1
-    fi
+  if [ "$DUTY_CYCLE" -lt 0 ] || [ "$DUTY_CYCLE" -gt 100 ]; then
+    logerr "Duty cycle must be greater or equal then 0 and lower or equal to 100"
+    return 1
+  fi
 
-    PERIOD=$(frequency_to_period "$FREQUENCY")
-    logdebug "f=$FREQUENCY, p=$PERIOD, dc=$DUTY_CYCLE"
-    NEW_DUTY_CYCLE=$(awk -v period="$PERIOD" -v dc="$DUTY_CYCLE" 'BEGIN { printf "%.0f", period * dc / 100; exit(0) }')
+  PERIOD=$(frequency_to_period "$FREQUENCY")
+  logdebug "f=$FREQUENCY, p=$PERIOD, dc=$DUTY_CYCLE"
+  NEW_DUTY_CYCLE=$(awk -v period="$PERIOD" -v dc="$DUTY_CYCLE" 'BEGIN { printf "%.0f", period * dc / 100; exit(0) }')
 
-    logdebug "pwm_change_duty_cycle: $NEW_DUTY_CYCLE > $(pwm_get_channel_path "$CHANNEL" "duty_cycle")"
-    echo "$NEW_DUTY_CYCLE" > "$(pwm_get_channel_path "$CHANNEL" "duty_cycle")"
+  logdebug "pwm_change_duty_cycle: $NEW_DUTY_CYCLE > $(pwm_get_channel_path "$CHANNEL" "duty_cycle")"
+  echo "$NEW_DUTY_CYCLE" >"$(pwm_get_channel_path "$CHANNEL" "duty_cycle")"
 }
 
 # Change the pwm frequency
 function pwm_change_frequency {
-    local CHANNEL="$1"
-    local FREQUENCY="$2"
+  local CHANNEL="$1"
+  local FREQUENCY="$2"
 
-    if num_compare "$FREQUENCY < 0.1"; then
-        logerr "Frequency can't be lower than 0.1 on the Rpi."
-        return 1
-    fi
+  if num_compare "$FREQUENCY < 0.1"; then
+    logerr "Frequency can't be lower than 0.1 on the Rpi."
+    return 1
+  fi
 
-    # See: https://stackoverflow.com/a/23050835/1895939
-    if [ "$CURRENT_DUTY_CYCLE" == -1 ]; then
-        CURRENT_DUTY_CYCLE=0
-    elif [ "$CURRENT_DUTY_CYCLE" -gt 0 ]; then
-        pwm_change_duty_cycle "$CHANNEL" "$FREQUENCY" "0"
-    fi
+  # See: https://stackoverflow.com/a/23050835/1895939
+  if [ "$CURRENT_DUTY_CYCLE" == -1 ]; then
+    CURRENT_DUTY_CYCLE=0
+  elif [ "$CURRENT_DUTY_CYCLE" -gt 0 ]; then
+    pwm_change_duty_cycle "$CHANNEL" "$FREQUENCY" "0"
+  fi
 
-    PERIOD=$(frequency_to_period "$FREQUENCY")
+  PERIOD=$(frequency_to_period "$FREQUENCY")
 
-    logdebug "pwm_change_frequency: $PERIOD > $(pwm_get_channel_path "$CHANNEL" "period")"
-    echo "$PERIOD" > "$(pwm_get_channel_path "$CHANNEL" "period")"
+  logdebug "pwm_change_frequency: $PERIOD > $(pwm_get_channel_path "$CHANNEL" "period")"
+  echo "$PERIOD" >"$(pwm_get_channel_path "$CHANNEL" "period")"
 
-    pwm_change_duty_cycle "$CHANNEL" "$FREQUENCY" "$CURRENT_DUTY_CYCLE"
+  pwm_change_duty_cycle "$CHANNEL" "$FREQUENCY" "$CURRENT_DUTY_CYCLE"
 }
 
 # Enable the pwm channel
 function pwm_start {
-    local CHANNEL="$1"
-    logdebug "echo 1 > $(pwm_get_channel_path "$CHANNEL" "enable")"
-    echo 1 > "$(pwm_get_channel_path "$CHANNEL" "enable")"
+  local CHANNEL="$1"
+  logdebug "echo 1 > $(pwm_get_channel_path "$CHANNEL" "enable")"
+  echo 1 >"$(pwm_get_channel_path "$CHANNEL" "enable")"
 }
 
 # Disable the pwm channel
 function pwm_stop {
-    local CHANNEL="$1"
-    logdebug "echo 0 > $(pwm_get_channel_path "$CHANNEL" "enable")"
-    echo 0 > "$(pwm_get_channel_path "$CHANNEL" "enable")"
+  local CHANNEL="$1"
+  logdebug "echo 0 > $(pwm_get_channel_path "$CHANNEL" "enable")"
+  echo 0 >"$(pwm_get_channel_path "$CHANNEL" "enable")"
 }
 
 # Validate & init the pwm
 function pwm_init {
-    local CHANNEL="$1"
-    local FREQUENCY="$2"
+  local CHANNEL="$1"
+  local FREQUENCY="$2"
 
-    if [ ! -d "$PWM_CHIP_PATH" ]; then
-        logerr "Please enable the hardware pwm by adding 'dtoverlay=pwm-2chan' to /boot/config.txt and reboot"
-        exit 1
-    fi
+  if [ ! -d "$PWM_CHIP_PATH" ]; then
+    logerr "Please enable the hardware pwm by adding 'dtoverlay=pwm-2chan' to /boot/config.txt and reboot"
+    exit 1
+  fi
 
-    if [ ! -w "$(pwm_get_chip_path "export")" ]; then
-        logerr "Need write access to files in $PWM_CHIP_PATH"
-        exit 1
-    fi
+  if [ ! -w "$(pwm_get_chip_path "export")" ]; then
+    logerr "Need write access to files in $PWM_CHIP_PATH"
+    exit 1
+  fi
 
-    if [ "$CHANNEL" != "0" ] && [ "$CHANNEL" != "1" ]; then
-        logerr "Only channel 0 and 1 are available on the Rpi"
-        exit 1
-    fi
+  if [ "$CHANNEL" != "0" ] && [ "$CHANNEL" != "1" ]; then
+    logerr "Only channel 0 and 1 are available on the Rpi"
+    exit 1
+  fi
 
-    pwm_create "$CHANNEL"
-    pwm_change_frequency "$CHANNEL" "$FREQUENCY"
-    pwm_start "$CHANNEL"
+  pwm_create "$CHANNEL"
+  pwm_change_frequency "$CHANNEL" "$FREQUENCY"
+  pwm_start "$CHANNEL"
 }
 
 # Unexport the pwm channel
 function pwm_cleanup {
-    local CHANNEL="$1"
+  local CHANNEL="$1"
 
-    logdebug "pwm_cleanup: $CHANNEL $(pwm_get_chip_path "unexport")"
-    echo "$CHANNEL" > "$(pwm_get_chip_path "unexport")"
+  logdebug "pwm_cleanup: $CHANNEL $(pwm_get_chip_path "unexport")"
+  echo "$CHANNEL" >"$(pwm_get_chip_path "unexport")"
 }
 
 # Get the raspberry pi temperature as float with 2 decimals
@@ -183,7 +183,7 @@ function __main__ {
     DUTY_CYCLE=0
 
     # Convert float to inter
-    CUR_TEMP=${TEMP%.*}  # This does now work as intended    
+    CUR_TEMP=${TEMP%.*} # This does now work as intended
     # printf -v CUR_TEMP %0.0f "$TEMP"  # Convert float to int, but does not work, original method, now commented out
 
     if [ "$CUR_TEMP" -ge 75 ]; then
@@ -191,12 +191,6 @@ function __main__ {
     elif [ "$CUR_TEMP" -ge 70 ]; then
       DUTY_CYCLE=80
     elif [ "$CUR_TEMP" -ge 60 ]; then
-      DUTY_CYCLE=70
-    elif [ "$CUR_TEMP" -ge 50 ]; then
-      DUTY_CYCLE=50
-    elif [ "$CUR_TEMP" -ge 40 ]; then
-      DUTY_CYCLE=45
-    elif [ "$CUR_TEMP" -ge 25 ]; then
       DUTY_CYCLE=40
     fi
 
@@ -214,4 +208,3 @@ function __main__ {
 CURRENT_DUTY_CYCLE=-1
 
 __main__
-
