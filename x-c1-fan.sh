@@ -177,6 +177,7 @@ function __main__ {
   fi
 
   pwm_init "$PWM_CHANNEL" "$PWM_HERTZ"
+  CURRENT_DUTY_CYCLE=-1
 
   while true; do
     TEMP="$(get_temp)"
