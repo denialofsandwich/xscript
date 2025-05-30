@@ -199,6 +199,7 @@ function __main__ {
       CURRENT_DUTY_CYCLE="$DUTY_CYCLE"
 
       echo "Fan speed changed to $DUTY_CYCLE, temp is $TEMP"
+      echo "raspberry_fan_speed $DUTY_CYCLE" >/var/lib/node_exporter/textfile_collector/fan_speed.prom
     fi
 
     sleep "${SLEEP_INTERVAL:-5}"
