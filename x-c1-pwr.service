@@ -3,7 +3,7 @@ Description=Run Hardware Power Management & Safe Shutdown daemon
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/xPWR.sh 0 4 17
+ExecStart=/usr/local/bin/xPWR.sh /dev/gpiochip0 GPIO4 GPIO17
 
 Restart=always
 User=root
